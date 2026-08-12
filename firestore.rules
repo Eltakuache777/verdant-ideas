@@ -1,0 +1,43 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Public storefront listings — anyone can browse the shop without logging in.
+    // Only the server (Admin SDK, which bypasses these rules) can write listings.
+    match /catalogProducts/{productId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // A user's own account doc.
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Design projects — owner-only, keyed by an `ownerId` field rather than the doc ID.
+    match /projects/{projectId} {
+      allow read, update, delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+    }
+
+    // Manufacturing orders placed from a project — owner-only, same ownership pattern.
+    match /orders/{orderId} {
+      allow read, update, delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+    }
+
+    // Shop orders (Stripe checkout + Printful fulfillment) — written and read only
+    // by the server via the Admin SDK, which bypasses these rules entirely. No
+    // client ever reads or writes this collection directly, so it stays fully closed.
+    match /storeOrders/{orderId} {
+      allow read, write: if false;
+    }
+
+    // Deny by default — every other collection must be explicitly opened above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+  }
+}
