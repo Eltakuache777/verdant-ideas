@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { cloudinaryConfigured, uploadToCloudinary } from "@/app/lib/cloudinary";
+import { requireAuth, AuthError } from "@/app/lib/apiAuth";
 
 export async function POST(req: NextRequest) {
   if (!cloudinaryConfigured()) {
@@ -14,9 +15,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const uid = await requireAuth(req);
+
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
-    const uid = (formData.get("uid") as string | null) || "anonymous";
 
     if (!file) {
       return NextResponse.json({ error: "No file provided." }, { status: 400 });
@@ -30,6 +32,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
     console.error(error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Upload failed." },

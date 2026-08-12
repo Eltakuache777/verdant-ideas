@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 
 import { adminDb } from "@/app/lib/firebase-admin";
+import { requireAuth, AuthError } from "@/app/lib/apiAuth";
 import { printfulConfigured, createDraftOrder } from "@/app/lib/printful";
 
 export async function POST(req: NextRequest) {
@@ -13,8 +14,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const ownerId = await requireAuth(req);
+
     const {
-      ownerId,
       projectId,
       variantId,
       productName,
@@ -24,8 +26,15 @@ export async function POST(req: NextRequest) {
       recipient,
     } = await req.json();
 
-    if (!ownerId || !variantId || !designImageUrl || !recipient?.name || !recipient?.address1) {
+    if (!variantId || !designImageUrl || !recipient?.name || !recipient?.address1) {
       return NextResponse.json({ error: "Missing required order details." }, { status: 400 });
+    }
+
+    if (projectId) {
+      const projectSnap = await adminDb.collection("projects").doc(projectId).get();
+      if (!projectSnap.exists || projectSnap.data()?.ownerId !== ownerId) {
+        return NextResponse.json({ error: "Project not found." }, { status: 404 });
+      }
     }
 
     const orderId = randomUUID();
@@ -71,6 +80,9 @@ export async function POST(req: NextRequest) {
       throw printfulError;
     }
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
     console.error(error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to create order." },

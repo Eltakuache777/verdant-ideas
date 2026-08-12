@@ -53,41 +53,54 @@ export async function POST(req: NextRequest) {
       const orderId = session.metadata?.orderId;
 
       if (uid && plan) {
+        // Day Pass is a one-time payment for 24 hours of access, not a
+        // subscription — record when it expires so it doesn't grant
+        // permanent access. Real subscriptions (pro/elite) don't expire on
+        // their own, so clear any stale expiry from a previous day pass.
+        const planExpiresAt = plan === "daypass" ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null;
+
         await adminDb.collection("users").doc(uid).update({
           plan,
+          planExpiresAt,
         });
 
         console.log(`✅ Updated ${uid} to ${plan}`);
       } else if (orderId) {
         const orderRef = adminDb.collection("storeOrders").doc(orderId);
-        const orderSnap = await orderRef.get();
-
-        if (!orderSnap.exists) {
-          console.error(`Webhook received for unknown orderId ${orderId} (session ${session.id})`);
-          break;
-        }
-
-        const order = orderSnap.data()!;
-
-        // Stripe retries this event on timeout/non-2xx. If a Printful order was
-        // already placed for this orderId, don't place a second one.
-        if (order.printfulOrderId) {
-          console.log(`Order ${orderId} already fulfilled (Printful order ${order.printfulOrderId}) — skipping.`);
-          break;
-        }
-
-        const orderLineItems = (order.items || []) as OrderLineItem[];
 
         const shipping = session.collected_information?.shipping_details;
         const address = shipping?.address || session.customer_details?.address;
 
-        await orderRef.update({
-          amountTotal: session.amount_total,
-          customerEmail: session.customer_details?.email || "",
-          stripeSessionId: session.id,
-          status: "creating",
-          updatedAt: new Date(),
+        // Stripe can redeliver this event (timeout, non-2xx, manual replay),
+        // including near-simultaneously. Claim the order atomically inside a
+        // transaction so two overlapping deliveries can't both pass a
+        // check-then-act read and place two real Printful orders.
+        const claimedOrder = await adminDb.runTransaction(async (tx) => {
+          const snap = await tx.get(orderRef);
+          if (!snap.exists) return null;
+
+          const data = snap.data()!;
+          if (data.printfulOrderId || data.status === "creating" || data.status === "fulfilling") {
+            return null;
+          }
+
+          tx.update(orderRef, {
+            amountTotal: session.amount_total,
+            customerEmail: session.customer_details?.email || "",
+            stripeSessionId: session.id,
+            status: "creating",
+            updatedAt: new Date(),
+          });
+
+          return data;
         });
+
+        if (!claimedOrder) {
+          console.log(`Order ${orderId} already claimed or fulfilled — skipping (session ${session.id}).`);
+          break;
+        }
+
+        const orderLineItems = (claimedOrder.items || []) as OrderLineItem[];
 
         let printfulOrder;
         try {

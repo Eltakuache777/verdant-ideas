@@ -6,6 +6,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { AlertCircle, Package } from "lucide-react";
 
 import { auth, db } from "@/app/lib/firebase";
+import { authFetch } from "@/app/lib/authFetch";
 import { Card, PageHeader } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
@@ -103,11 +104,10 @@ export default function NewOrderPage() {
     setSubmitting(true);
 
     try {
-      const response = await fetch("/api/fulfillment/create-order", {
+      const response = await authFetch("/api/fulfillment/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ownerId: user.uid,
           projectId,
           variantId: selectedVariantId,
           productName: selectedProduct?.productName,

@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/app/lib/firebase-admin";
+import { requireAuth, AuthError } from "@/app/lib/apiAuth";
 import { randomUUID } from "crypto";
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, type, description, ownerId, designImageUrl } = await req.json();
+    const ownerId = await requireAuth(req);
 
-    if (!name || !ownerId) {
+    const { name, type, description, designImageUrl } = await req.json();
+
+    if (!name) {
       return NextResponse.json(
         { error: "Missing required fields." },
         { status: 400 }
@@ -33,6 +36,9 @@ export async function POST(req: NextRequest) {
       projectId,
     });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
     console.error(error);
 
     return NextResponse.json(

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Wand2, AlertCircle, Sparkles, Save } from "lucide-react";
 
 import { auth } from "@/app/lib/firebase";
+import { authFetch } from "@/app/lib/authFetch";
 import { uploadDesignBlob } from "@/app/lib/uploadDesign";
 import { Card, PageHeader } from "@/components/ui/Card";
 import { Input, Textarea, Label } from "@/components/ui/Input";
@@ -43,7 +44,7 @@ export default function StudioPage() {
     setImageBase64("");
 
     try {
-      const response = await fetch("/api/ai/generate-image", {
+      const response = await authFetch("/api/ai/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
@@ -79,16 +80,15 @@ export default function StudioPage() {
 
     try {
       const blob = base64ToBlob(imageBase64);
-      const designImageUrl = await uploadDesignBlob(user.uid, blob);
+      const designImageUrl = await uploadDesignBlob(blob);
 
-      const response = await fetch("/api/projects/create", {
+      const response = await authFetch("/api/projects/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: projectName,
           type: "AI Generated",
           description: prompt,
-          ownerId: user.uid,
           designImageUrl,
         }),
       });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 
 import { adminDb } from "@/app/lib/firebase-admin";
+import { requireAuth, AuthError } from "@/app/lib/apiAuth";
 import {
   printfulConfigured,
   getCatalogProductVariants,
@@ -85,8 +86,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { ownerId, projectId, selections } = (await req.json()) as {
-      ownerId: string;
+    const ownerId = await requireAuth(req);
+
+    const { projectId, selections } = (await req.json()) as {
       projectId: string;
       selections: Selection[];
     };
@@ -94,8 +96,15 @@ export async function POST(req: NextRequest) {
     const validSelections =
       selections?.filter((s) => s.designImageUrl || s.images?.main) ?? [];
 
-    if (!ownerId || validSelections.length === 0) {
+    if (validSelections.length === 0) {
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
+    }
+
+    if (projectId) {
+      const projectSnap = await adminDb.collection("projects").doc(projectId).get();
+      if (!projectSnap.exists || projectSnap.data()?.ownerId !== ownerId) {
+        return NextResponse.json({ error: "Project not found." }, { status: 404 });
+      }
     }
 
     const results: { productKey: string; color: string; catalogId: string; mockupUrl: string }[] = [];
@@ -218,6 +227,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ results, errors });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
     console.error(error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to create catalog." },

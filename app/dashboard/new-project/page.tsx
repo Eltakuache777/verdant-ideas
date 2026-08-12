@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AlertCircle, UploadCloud, X } from "lucide-react";
 
 import { auth } from "@/app/lib/firebase";
+import { authFetch } from "@/app/lib/authFetch";
 import { uploadDesignFile } from "@/app/lib/uploadDesign";
 import { Card, PageHeader } from "@/components/ui/Card";
 import { Input, Textarea, Select, Label } from "@/components/ui/Input";
@@ -64,17 +65,16 @@ export default function NewProjectPage() {
       let designImageUrl = "";
 
       if (designFile) {
-        designImageUrl = await uploadDesignFile(user.uid, designFile);
+        designImageUrl = await uploadDesignFile(designFile);
       }
 
-      const response = await fetch("/api/projects/create", {
+      const response = await authFetch("/api/projects/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: projectName,
           type: projectType,
           description,
-          ownerId: user.uid,
           designImageUrl,
         }),
       });

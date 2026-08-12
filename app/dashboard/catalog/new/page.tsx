@@ -6,6 +6,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { AlertCircle, CheckCircle2, Store } from "lucide-react";
 
 import { auth, db } from "@/app/lib/firebase";
+import { authFetch } from "@/app/lib/authFetch";
 import { Card, PageHeader } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 
@@ -71,10 +72,10 @@ export default function NewCatalogPage() {
     );
 
     try {
-      const response = await fetch("/api/fulfillment/create-catalog", {
+      const response = await authFetch("/api/fulfillment/create-catalog", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ownerId: user.uid, projectId, selections }),
+        body: JSON.stringify({ projectId, selections }),
       });
 
       const data = await response.json();

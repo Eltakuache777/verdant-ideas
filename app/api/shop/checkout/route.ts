@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { randomUUID } from "crypto";
 
 import { adminDb } from "@/app/lib/firebase-admin";
+import { resolveTrustedOrigin } from "@/app/lib/trustedOrigin";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-06-24.dahlia",
@@ -120,8 +121,7 @@ export async function POST(req: NextRequest) {
       createdAt: new Date(),
     });
 
-    const origin =
-      req.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const origin = resolveTrustedOrigin(req);
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",

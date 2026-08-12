@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 
 import { auth, db } from "@/app/lib/firebase";
+import { authFetch } from "@/app/lib/authFetch";
 import { Card, PageHeader } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 
@@ -62,7 +63,6 @@ const plans: PlanCard[] = [
 ];
 
 export default function BillingPage() {
-  const [uid, setUid] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [plan, setPlan] = useState("free");
   const [loading, setLoading] = useState(true);
@@ -77,14 +77,26 @@ export default function BillingPage() {
         return;
       }
 
-      setUid(user.uid);
-
-      const snap = await getDoc(doc(db, "users", user.uid));
+      const userRef = doc(db, "users", user.uid);
+      const snap = await getDoc(userRef);
 
       if (snap.exists()) {
         const data = snap.data();
         setCustomerId(data.stripeCustomerId || "");
-        setPlan(data.plan || "free");
+
+        // Day Pass grants 24 hours of access, not permanent access — once
+        // planExpiresAt has passed, treat it as expired here and revert it
+        // in Firestore so the stale plan doesn't linger.
+        const expiresAt = data.planExpiresAt?.toDate?.() as Date | undefined;
+        const isExpiredDayPass =
+          data.plan === "daypass" && expiresAt !== undefined && expiresAt.getTime() <= Date.now();
+
+        if (isExpiredDayPass) {
+          setPlan("free");
+          updateDoc(userRef, { plan: "free", planExpiresAt: null }).catch(() => {});
+        } else {
+          setPlan(data.plan || "free");
+        }
       }
 
       setLoading(false);
@@ -96,7 +108,7 @@ export default function BillingPage() {
   async function checkout(selectedPlan: PlanId) {
     setError("");
 
-    if (!uid || !customerId) {
+    if (!customerId) {
       setError("Billing isn't set up for your account yet. Try logging out and back in.");
       return;
     }
@@ -104,10 +116,10 @@ export default function BillingPage() {
     setCheckoutPlan(selectedPlan);
 
     try {
-      const response = await fetch("/api/create-checkout-session", {
+      const response = await authFetch("/api/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: selectedPlan, uid, customerId }),
+        body: JSON.stringify({ plan: selectedPlan }),
       });
 
       const data = await response.json();

@@ -1,3 +1,5 @@
+import { authFetch } from "@/app/lib/authFetch";
+
 const UPLOAD_TIMEOUT_MS = 20000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
@@ -7,13 +9,12 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   ]);
 }
 
-async function uploadViaApi(uid: string, file: Blob, filename: string): Promise<string> {
+async function uploadViaApi(file: Blob, filename: string): Promise<string> {
   const formData = new FormData();
   formData.append("file", file, filename);
-  formData.append("uid", uid);
 
   const response = await withTimeout(
-    fetch("/api/upload/design", { method: "POST", body: formData }),
+    authFetch("/api/upload/design", { method: "POST", body: formData }),
     UPLOAD_TIMEOUT_MS,
     "Upload timed out. You can still save without an image."
   );
@@ -27,10 +28,10 @@ async function uploadViaApi(uid: string, file: Blob, filename: string): Promise<
   return data.url;
 }
 
-export async function uploadDesignFile(uid: string, file: File): Promise<string> {
-  return uploadViaApi(uid, file, file.name);
+export async function uploadDesignFile(file: File): Promise<string> {
+  return uploadViaApi(file, file.name);
 }
 
-export async function uploadDesignBlob(uid: string, blob: Blob, extension = "png"): Promise<string> {
-  return uploadViaApi(uid, blob, `design.${extension}`);
+export async function uploadDesignBlob(blob: Blob, extension = "png"): Promise<string> {
+  return uploadViaApi(blob, `design.${extension}`);
 }
