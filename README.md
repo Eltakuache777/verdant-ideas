@@ -2,6 +2,8 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+Copy `.env.example` to `.env.local` and fill in real values (Stripe, Firebase Admin, Cloudinary, Printful, OpenAI). `NEXT_PUBLIC_APP_URL` must be set to the app's real deployed URL in production — it's inlined at build time and used for `robots.txt`, `sitemap.xml`, and canonical/OG URLs.
+
 First, run the development server:
 
 ```bash

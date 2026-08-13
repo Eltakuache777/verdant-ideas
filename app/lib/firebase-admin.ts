@@ -8,12 +8,29 @@ const firebaseAdminConfig = {
   privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
 };
 
-const app =
-  getApps().length === 0
-    ? initializeApp({
-        credential: cert(firebaseAdminConfig),
-      })
-    : getApps()[0];
+function assertConfigured() {
+  const missing = Object.entries(firebaseAdminConfig)
+    .filter(([, value]) => !value)
+    .map(([key]) => key);
+
+  if (missing.length > 0) {
+    const envNames = missing
+      .map((key) => (key === "projectId" ? "FIREBASE_PROJECT_ID" : key === "clientEmail" ? "FIREBASE_CLIENT_EMAIL" : "FIREBASE_PRIVATE_KEY"))
+      .join(", ");
+    throw new Error(
+      `Firebase Admin isn't configured: missing ${envNames}. Set these in the environment (build-time env for anything statically generated, like sitemap.ts) before this app can run.`
+    );
+  }
+}
+
+function getAdminApp() {
+  if (getApps().length > 0) return getApps()[0];
+
+  assertConfigured();
+  return initializeApp({ credential: cert(firebaseAdminConfig) });
+}
+
+const app = getAdminApp();
 
 export const adminDb = getFirestore(app);
 export const adminAuth = getAuth(app);

@@ -15,7 +15,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   const snapshot = await adminDb.collection("catalogProducts").select("productKey").get();
-  const productKeys = [...new Set(snapshot.docs.map((d) => d.data().productKey as string))];
+  const productKeys = [
+    ...new Set(snapshot.docs.map((d) => d.data().productKey).filter((key): key is string => Boolean(key))),
+  ];
 
   const productRoutes: MetadataRoute.Sitemap = productKeys.map((productKey) => ({
     url: `${baseUrl}/shop/${productKey}`,
