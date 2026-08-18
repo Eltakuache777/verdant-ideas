@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/app/lib/firebase-admin";
-import { requireAuth, AuthError } from "@/app/lib/apiAuth";
+import { requireAuth, authErrorResponse } from "@/app/lib/apiAuth";
 import { randomUUID } from "crypto";
 
 export async function POST(req: NextRequest) {
@@ -36,9 +36,8 @@ export async function POST(req: NextRequest) {
       projectId,
     });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: 401 });
-    }
+    const authResponse = authErrorResponse(error);
+    if (authResponse) return authResponse;
     console.error(error);
 
     return NextResponse.json(

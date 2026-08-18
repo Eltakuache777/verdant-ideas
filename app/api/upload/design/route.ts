@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { cloudinaryConfigured, uploadToCloudinary } from "@/app/lib/cloudinary";
-import { requireAuth, AuthError } from "@/app/lib/apiAuth";
+import { requireAuth, authErrorResponse } from "@/app/lib/apiAuth";
 
 export async function POST(req: NextRequest) {
   if (!cloudinaryConfigured()) {
@@ -32,9 +32,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: 401 });
-    }
+    const authResponse = authErrorResponse(error);
+    if (authResponse) return authResponse;
     console.error(error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Upload failed." },

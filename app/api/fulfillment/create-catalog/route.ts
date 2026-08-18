@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 
 import { adminDb } from "@/app/lib/firebase-admin";
-import { requireAuth, AuthError } from "@/app/lib/apiAuth";
+import { requireAuth, authErrorResponse } from "@/app/lib/apiAuth";
 import {
   printfulConfigured,
   getCatalogProductVariants,
@@ -227,9 +227,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ results, errors });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: 401 });
-    }
+    const authResponse = authErrorResponse(error);
+    if (authResponse) return authResponse;
     console.error(error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to create catalog." },

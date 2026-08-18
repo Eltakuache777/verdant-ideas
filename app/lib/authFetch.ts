@@ -8,7 +8,13 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
     throw new Error("You must be logged in.");
   }
 
-  const token = await user.getIdToken();
+  let token: string;
+  try {
+    token = await user.getIdToken();
+  } catch {
+    throw new Error("Couldn't verify your session. Check your connection and try again.");
+  }
+
   const headers = new Headers(options.headers);
   headers.set("Authorization", `Bearer ${token}`);
 

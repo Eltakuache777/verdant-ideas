@@ -9,6 +9,7 @@ import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { Leaf, AlertCircle } from "lucide-react";
 
 import { auth, db } from "@/app/lib/firebase";
+import { authFetch } from "@/app/lib/authFetch";
 import Button from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
@@ -37,7 +38,7 @@ export default function SignupPage() {
       let stripeCustomerId = "";
 
       try {
-        const response = await fetch("/api/create-customer", {
+        const response = await authFetch("/api/create-customer", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, name }),

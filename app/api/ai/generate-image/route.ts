@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireAuth, AuthError } from "@/app/lib/apiAuth";
+import { requireAuth, authErrorResponse } from "@/app/lib/apiAuth";
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -53,9 +53,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ imageBase64 });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: 401 });
-    }
+    const authResponse = authErrorResponse(error);
+    if (authResponse) return authResponse;
     console.error(error);
     return NextResponse.json({ error: "Image generation failed." }, { status: 500 });
   }

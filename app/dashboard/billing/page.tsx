@@ -129,8 +129,8 @@ export default function BillingPage() {
       } else {
         setError(data.error || "Unable to start checkout.");
       }
-    } catch {
-      setError("Unable to start checkout.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to start checkout.");
     } finally {
       setCheckoutPlan(null);
     }

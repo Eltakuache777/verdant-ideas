@@ -1,12 +1,16 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+
+import { requireAuth, authErrorResponse } from "@/app/lib/apiAuth";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-06-24.dahlia",
 });
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    await requireAuth(req);
+
     const { email, name } = await req.json();
 
     const customer = await stripe.customers.create({
@@ -18,6 +22,8 @@ export async function POST(req: Request) {
       customerId: customer.id,
     });
   } catch (error) {
+    const authResponse = authErrorResponse(error);
+    if (authResponse) return authResponse;
     console.error(error);
 
     return NextResponse.json(

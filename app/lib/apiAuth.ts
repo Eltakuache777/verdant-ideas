@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { adminAuth } from "@/app/lib/firebase-admin";
 
@@ -18,7 +18,24 @@ export async function requireAuth(req: NextRequest): Promise<string> {
   try {
     const decoded = await adminAuth.verifyIdToken(token);
     return decoded.uid;
-  } catch {
-    throw new AuthError("Your session has expired. Please log in again.");
+  } catch (err) {
+    // Firebase Admin throws a FirebaseAuthError with an "auth/..." code for
+    // a genuinely invalid/expired token. Anything else (a transient network
+    // blip fetching Google's public keys, etc.) isn't the user's fault and
+    // "log in again" wouldn't fix it, so keep those messages distinct.
+    const code = (err as { code?: string } | undefined)?.code;
+    if (typeof code === "string" && code.startsWith("auth/")) {
+      throw new AuthError("Your session has expired. Please log in again.");
+    }
+    throw new AuthError("Couldn't verify your session right now. Please try again.");
   }
+}
+
+// Shared so every route's catch block doesn't repeat the same
+// instanceof-check-and-401 three-liner by hand.
+export function authErrorResponse(error: unknown): NextResponse | null {
+  if (error instanceof AuthError) {
+    return NextResponse.json({ error: error.message }, { status: 401 });
+  }
+  return null;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { FirebaseError } from "firebase/app";
@@ -10,13 +10,24 @@ import { auth } from "@/app/lib/firebase";
 import Button from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
+const COOLDOWN_SECONDS = 20;
+
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => setCooldown((c) => Math.max(0, c - 1)), 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
 
   async function handleSubmit() {
+    if (cooldown > 0) return;
+
     if (!email) {
       setError("Please enter your email.");
       return;
@@ -29,17 +40,26 @@ export default function ForgotPasswordPage() {
       await sendPasswordResetEmail(auth, email, {
         url: `${window.location.origin}/login`,
       });
-      // Show the same confirmation whether or not the account exists, so
-      // this can't be used to check which emails have accounts.
       setSent(true);
     } catch (err) {
-      if (err instanceof FirebaseError && err.code === "auth/invalid-email") {
-        setError("That doesn't look like a valid email address.");
-      } else {
+      const code = err instanceof FirebaseError ? err.code : "";
+
+      if (code === "auth/user-not-found") {
+        // Show the same confirmation as a real send, so this can't be used
+        // to check which emails have accounts.
         setSent(true);
+      } else if (code === "auth/invalid-email") {
+        setError("That doesn't look like a valid email address.");
+      } else if (code === "auth/too-many-requests") {
+        setError("Too many attempts. Please wait a few minutes and try again.");
+      } else if (code === "auth/network-request-failed") {
+        setError("Couldn't reach the server. Check your connection and try again.");
+      } else {
+        setError("Something went wrong. Please try again.");
       }
     } finally {
       setLoading(false);
+      setCooldown(COOLDOWN_SECONDS);
     }
   }
 
@@ -101,8 +121,8 @@ export default function ForgotPasswordPage() {
                   />
                 </div>
 
-                <Button type="submit" disabled={loading} className="mt-2 w-full">
-                  {loading ? "Sending…" : "Send reset link"}
+                <Button type="submit" disabled={loading || cooldown > 0} className="mt-2 w-full">
+                  {loading ? "Sending…" : cooldown > 0 ? `Wait ${cooldown}s` : "Send reset link"}
                 </Button>
               </form>
 

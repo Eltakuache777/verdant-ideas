@@ -59,8 +59,8 @@ export default function StudioPage() {
       }
 
       setImageBase64(data.imageBase64);
-    } catch {
-      setError("Image generation failed.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Image generation failed.");
     } finally {
       setGenerating(false);
     }
