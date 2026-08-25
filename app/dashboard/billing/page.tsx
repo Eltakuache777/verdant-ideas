@@ -105,17 +105,36 @@ export default function BillingPage() {
     loadUser();
   }, []);
 
-  async function checkout(selectedPlan: PlanId) {
-    setError("");
+  async function ensureCustomerId(): Promise<string> {
+    const user = auth.currentUser;
+    if (!user) throw new Error("You must be logged in.");
 
-    if (!customerId) {
-      setError("Billing isn't set up for your account yet. Try logging out and back in.");
-      return;
+    const response = await authFetch("/api/create-customer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: user.email, name: user.displayName || user.email }),
+    });
+
+    const data = await response.json();
+    if (!response.ok || !data.customerId) {
+      throw new Error(data.error || "Couldn't set up billing for your account. Please try again in a moment.");
     }
 
+    await updateDoc(doc(db, "users", user.uid), { stripeCustomerId: data.customerId });
+    return data.customerId;
+  }
+
+  async function checkout(selectedPlan: PlanId) {
+    setError("");
     setCheckoutPlan(selectedPlan);
 
     try {
+      // Signup-time customer creation can fail silently (network blip, etc.),
+      // leaving stripeCustomerId empty forever. Rather than dead-ending here,
+      // create it now so the user isn't permanently locked out of billing.
+      const id = customerId || (await ensureCustomerId());
+      if (!customerId) setCustomerId(id);
+
       const response = await authFetch("/api/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

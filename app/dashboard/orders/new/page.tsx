@@ -95,7 +95,7 @@ export default function NewOrderPage() {
     const user = auth.currentUser;
     if (!user) return;
 
-    if (!selectedVariantId || !name || !address1 || !city || !zip) {
+    if (!selectedVariantId || !name || !address1 || !city || !stateCode || !zip) {
       setError("Please fill in the product and shipping details.");
       return;
     }

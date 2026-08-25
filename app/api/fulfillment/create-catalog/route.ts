@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 
 import { adminDb } from "@/app/lib/firebase-admin";
-import { requireAuth, authErrorResponse } from "@/app/lib/apiAuth";
+import { requireAdmin, authErrorResponse } from "@/app/lib/apiAuth";
 import {
   printfulConfigured,
   getCatalogProductVariants,
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const ownerId = await requireAuth(req);
+    const ownerId = await requireAdmin(req);
 
     const { projectId, selections } = (await req.json()) as {
       projectId: string;

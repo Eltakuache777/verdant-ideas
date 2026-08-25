@@ -22,14 +22,24 @@ export async function printfulFetch(path: string, options: RequestInit = {}) {
   }
 
   const response = await fetch(`${PRINTFUL_BASE_URL}${path}`, { ...options, headers });
-  const data = await response.json();
+
+  // The body isn't guaranteed to be JSON (a gateway error or outage can
+  // return an HTML/empty body) — parse defensively so that case surfaces as
+  // a normal error instead of an uncaught JSON-parse exception.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let data: any = null;
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
 
   if (!response.ok) {
-    const message = data?.error?.message || data?.result || "Printful request failed.";
+    const message = data?.error?.message || (typeof data?.result === "string" ? data.result : null) || `Printful request failed (${response.status}).`;
     throw new Error(message);
   }
 
-  return data.result;
+  return data?.result;
 }
 
 // A small, well-known set of blank products to search the live catalog for.
@@ -38,7 +48,7 @@ export async function printfulFetch(path: string, options: RequestInit = {}) {
 export const CURATED_PRODUCT_SEARCHES = [
   { key: "tshirt", label: "T-Shirt", match: /unisex.*(t-shirt|tee)/i },
   { key: "hoodie", label: "Hoodie", match: /unisex.*hoodie/i },
-  { key: "mug", label: "Mug", match: /^mug|ceramic mug/i },
+  { key: "mug", label: "Mug", match: /mug/i },
   { key: "hat", label: "Hat", match: /twill cap|dad hat|snapback/i },
 ];
 

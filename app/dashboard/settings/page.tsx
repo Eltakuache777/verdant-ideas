@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { sendPasswordResetEmail } from "firebase/auth";
-import { Mail, CheckCircle2 } from "lucide-react";
+import { Mail, CheckCircle2, AlertCircle } from "lucide-react";
 
 import { auth, db } from "@/app/lib/firebase";
 import { Card, PageHeader } from "@/components/ui/Card";
@@ -60,6 +60,9 @@ export default function SettingsPage() {
   });
   const [resetSent, setResetSent] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [notifError, setNotifError] = useState("");
+  const [resetError, setResetError] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -68,16 +71,20 @@ export default function SettingsPage() {
 
       setEmail(user.email || "");
 
-      const snap = await getDoc(doc(db, "users", user.uid));
-      if (snap.exists() && snap.data().notifications) {
-        setNotifications({
-          projectUpdates: true,
-          productNews: false,
-          ...snap.data().notifications,
-        });
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid));
+        if (snap.exists() && snap.data().notifications) {
+          setNotifications({
+            projectUpdates: true,
+            productNews: false,
+            ...snap.data().notifications,
+          });
+        }
+      } catch {
+        setLoadError("Couldn't load your settings. Please refresh the page.");
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     }
 
     load();
@@ -87,20 +94,30 @@ export default function SettingsPage() {
     const user = auth.currentUser;
     if (!user) return;
 
+    const previous = notifications;
     const next = { ...notifications, [key]: value };
     setNotifications(next);
+    setNotifError("");
 
-    await setDoc(doc(db, "users", user.uid), { notifications: next }, { merge: true });
+    try {
+      await setDoc(doc(db, "users", user.uid), { notifications: next }, { merge: true });
+    } catch {
+      setNotifications(previous);
+      setNotifError("Couldn't save that change. Please try again.");
+    }
   }
 
   async function handlePasswordReset() {
     if (!email) return;
 
+    setResetError("");
     setResetLoading(true);
     try {
       await sendPasswordResetEmail(auth, email);
       setResetSent(true);
       setTimeout(() => setResetSent(false), 4000);
+    } catch {
+      setResetError("Couldn't send the reset email. Please try again.");
     } finally {
       setResetLoading(false);
     }
@@ -116,6 +133,11 @@ export default function SettingsPage() {
 
       {loading ? (
         <p className="text-sm text-ink-500">Loading settings…</p>
+      ) : loadError ? (
+        <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{loadError}</span>
+        </div>
       ) : (
         <div className="max-w-2xl space-y-6">
           <Card className="p-8">
@@ -137,10 +159,24 @@ export default function SettingsPage() {
                 </span>
               )}
             </div>
+
+            {resetError && (
+              <p className="mt-3 flex items-center gap-1.5 text-sm text-red-700">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {resetError}
+              </p>
+            )}
           </Card>
 
           <Card className="divide-y divide-black/[0.06] p-8">
             <h2 className="pb-4 text-base font-semibold text-ink-900">Notifications</h2>
+
+            {notifError && (
+              <p className="flex items-center gap-1.5 py-3 text-sm text-red-700">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {notifError}
+              </p>
+            )}
 
             <Toggle
               label="Project updates"

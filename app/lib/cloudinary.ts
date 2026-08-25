@@ -33,11 +33,17 @@ export async function uploadToCloudinary(base64DataUri: string, folder: string):
     body: form,
   });
 
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error?.message || "Cloudinary upload failed.");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let data: any = null;
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
   }
 
-  return data.secure_url;
+  if (!response.ok) {
+    throw new Error(data?.error?.message || `Cloudinary upload failed (${response.status}).`);
+  }
+
+  return data?.secure_url;
 }
